@@ -39,3 +39,39 @@ writeFileSync(
     game_path_max_bytes: 1000,
   }),
 );
+
+// EMBERWARD hand-in self-check, written for this entry: after the dossier is written, walk what
+// was actually handed in and report it, so a broken hand-in is visible in the run log instead of
+// only at grading time. It reads the output back (file counts, byte totals, screenshot sizes) and
+// prints one summary line per area. It writes nothing, so the dossier bytes above are untouched
+// and two runs of this program stay byte-identical.
+import { readdirSync, statSync } from 'node:fs';
+
+function weighDirectory(root) {
+  let files = 0;
+  let bytes = 0;
+  const pending = [root];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    for (const name of readdirSync(current)) {
+      const path = join(current, name);
+      const info = statSync(path);
+      if (info.isDirectory()) pending.push(path);
+      else {
+        files += 1;
+        bytes += info.size;
+      }
+    }
+  }
+  return { files, bytes };
+}
+
+const gameWeigh = weighDirectory(join(out, 'game'));
+const shotDir = join(out, 'screenshots');
+const shotNames = existsSync(shotDir) ? readdirSync(shotDir).sort() : [];
+const shotSizes = shotNames.map((name) => `${name}=${statSync(join(shotDir, name)).size}B`);
+const dossierBytes = statSync(join(out, 'dossier.json')).size;
+console.log(
+  `emberward hand-in: game ${gameWeigh.files} files / ${gameWeigh.bytes} bytes; ` +
+    `screenshots ${shotNames.length} (${shotSizes.join(', ')}); dossier ${dossierBytes} bytes`,
+);
